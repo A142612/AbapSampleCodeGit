@@ -1,0 +1,455 @@
+class ZST2CL_AUTOSVC_BASE definition
+  public
+  abstract
+  create public .
+
+public section.
+
+  interfaces ZST2IF_AUTOSVC .
+
+  aliases EXECUTE
+    for ZST2IF_AUTOSVC~EXECUTE .
+  aliases GET_AUTO_LIST
+    for ZST2IF_AUTOSVC~GET_AUTO_LIST .
+  aliases GET_CLASS_NAME
+    for ZST2IF_AUTOSVC~GET_CLASS_NAME .
+
+  types:
+    BEGIN OF sel_screen_rec,
+        oil_change   TYPE as4flag,
+        spark_plugs  TYPE as4flag,
+        rotate_tires TYPE as4flag,
+      END OF sel_screen_rec .
+  types AUTO_TYPE_ID type CHAR10 .
+  types:
+    BEGIN OF auto_type_rec,
+        type_id TYPE auto_type_id,
+      END OF auto_type_rec .
+  types:
+    auto_type_tab
+            TYPE STANDARD TABLE OF auto_type_rec
+            WITH DEFAULT KEY
+            INITIAL SIZE 0 .
+
+  class-methods CLASS_CONSTRUCTOR .
+protected section.
+
+  types:
+    oil_cap TYPE p LENGTH 4 DECIMALS 2 .
+  types CYL_COUNT type I .
+  types:
+    BEGIN OF auto_config_rec,
+      type_id      TYPE auto_type_id,
+      oil_capacity TYPE oil_cap,
+      cylinders    TYPE cyl_count,
+      class_type   TYPE seoclsname,
+    END OF auto_config_rec .
+  types:
+    auto_config_tab
+      TYPE SORTED TABLE OF auto_config_rec
+      WITH UNIQUE KEY type_id
+      INITIAL SIZE 0 .
+  types VAL_AMOUNT type CURR7 .
+  types:
+    hour_amount TYPE p LENGTH 4 DECIMALS 2 .
+
+  data MS_CONFIG type AUTO_CONFIG_REC .
+  class-data MT_CONFIG type AUTO_CONFIG_TAB .
+  constants MC_CURRENCY type WAERS value 'USD' ##NO_TEXT.
+  data MV_TOTAL type VAL_AMOUNT .
+  constants MC_OIL_CAP_STD type OIL_CAP value '4.0' ##NO_TEXT.
+  constants MC_PRICE_OIL_PER_LITRE type VAL_AMOUNT value '3.85' ##NO_TEXT.
+  data MC_PRICE_SPARK_PLUG type VAL_AMOUNT value '4.75' ##NO_TEXT.
+  data MC_PRICE_OIL_CHANGE type VAL_AMOUNT value '39.99' ##NO_TEXT.
+  data MC_PRICE_ROTATE_TIRES type VAL_AMOUNT value '45.50' ##NO_TEXT.
+  data MC_PRICE_LABOR type VAL_AMOUNT value '75' ##NO_TEXT.
+  constants MC_LABOR_SPARK_PLUG type HOUR_AMOUNT value '0.2' ##NO_TEXT.
+
+  methods CALC_SURCHARGE
+    importing
+      !IV_CAPACITY type OIL_CAP
+    returning
+      value(RV_SURCHARGE) type VAL_AMOUNT
+    raising
+      CX_SY_ARITHMETIC_ERROR .
+  methods CHANGE_OIL
+    importing
+      !IV_CAPACITY type OIL_CAP
+    changing
+      !CV_TOTAL type VAL_AMOUNT
+    raising
+      ZCX_ST2_GENERAL .
+  methods DO_SERVICES
+    importing
+      !IS_SEL type SEL_SCREEN_REC
+    raising
+      ZCX_ST2_GENERAL .
+  methods ROTATE_TIRES
+    changing
+      !CV_TOTAL type VAL_AMOUNT
+    raising
+      ZCX_ST2_GENERAL .
+  methods SPARK_PLUG_SVC
+    importing
+      !IV_CYLINDERS type CYL_COUNT
+    changing
+      !CV_TOTAL type VAL_AMOUNT
+    raising
+      ZCX_ST2_GENERAL .
+  methods WRITE_HEADER .
+  methods WRITE_TOTAL
+    importing
+      !IV_TOTAL type VAL_AMOUNT .
+private section.
+ENDCLASS.
+
+
+
+CLASS ZST2CL_AUTOSVC_BASE IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZST2CL_AUTOSVC_BASE->CALC_SURCHARGE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_CAPACITY                    TYPE        OIL_CAP
+* | [<-()] RV_SURCHARGE                   TYPE        VAL_AMOUNT
+* | [!CX!] CX_SY_ARITHMETIC_ERROR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD calc_surcharge.
+
+    rv_surcharge =
+      ( iv_capacity - mc_oil_cap_std ) * mc_price_oil_per_litre.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZST2CL_AUTOSVC_BASE->CHANGE_OIL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_CAPACITY                    TYPE        OIL_CAP
+* | [<-->] CV_TOTAL                       TYPE        VAL_AMOUNT
+* | [!CX!] ZCX_ST2_GENERAL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD change_oil.
+
+    SKIP 1.
+
+    WRITE:
+      / TEXT-t01 UNDER TEXT-h01.
+*       --> OIL CHANGE
+
+    WRITE:
+      / TEXT-t02 UNDER TEXT-h01,
+*       --> Standard fee:
+        mc_price_oil_change UNDER TEXT-h02
+                            RIGHT-JUSTIFIED
+                            CURRENCY mc_currency.
+
+    TRY.
+
+*       Add charge to total
+        cv_total = cv_total + mc_price_oil_change.
+
+*       Surcharge if oil capacity exceeds standard and add to total
+        IF iv_capacity > mc_oil_cap_std.
+
+          DATA(lv_surcharge) = calc_surcharge( iv_capacity ).
+
+          cv_total = cv_total + lv_surcharge.
+
+          WRITE:
+            / TEXT-t03 UNDER TEXT-h01,
+*           --> Additional oil surcharge:
+              lv_surcharge UNDER TEXT-h02
+                           RIGHT-JUSTIFIED
+                           CURRENCY mc_currency.
+
+        ENDIF.
+
+      CATCH cx_sy_arithmetic_error INTO DATA(lo_error).
+        RAISE EXCEPTION TYPE zcx_st2_general
+          EXPORTING
+            textid    = zcx_st2_general=>dynamic_error
+            long_text = lo_error->get_text( ).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZST2CL_AUTOSVC_BASE=>CLASS_CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method CLASS_CONSTRUCTOR.
+
+*   Populate the config attribute table
+    mt_config =
+      value #(
+        ( type_id = 'COMPACT_01'
+          oil_capacity = '3.26'
+          cylinders = 4
+          class_type = 'ZST2CL_AUTOSVC_STD' )
+        ( type_id = 'MIDSIZE_01'
+          oil_capacity = '3.83'
+          cylinders = 6
+          class_type = 'ZST2CL_AUTOSVC_STD' )
+        ( type_id = 'MIDSIZE_02'
+          oil_capacity = '4.6'
+          cylinders = 6
+          class_type = 'ZST2CL_AUTOSVC_STD' )
+        ( type_id = 'SPORT'
+          oil_capacity = '4.6'
+          cylinders = 6
+          class_type = 'ZST2CL_AUTOSVC_SPORT' )
+        ).
+
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZST2CL_AUTOSVC_BASE->DO_SERVICES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_SEL                         TYPE        SEL_SCREEN_REC
+* | [!CX!] ZCX_ST2_GENERAL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD do_services.
+
+*   Output header for charges summary
+    write_header( ).
+
+*   Oil change if requested
+    IF is_sel-oil_change IS NOT INITIAL.
+      change_oil(
+        EXPORTING
+          iv_capacity = ms_config-oil_capacity
+        CHANGING
+          cv_total = mv_total ).
+    ENDIF.
+
+*   Spark plug service if requested
+    IF is_sel-spark_plugs IS NOT INITIAL.
+      spark_plug_svc(
+        EXPORTING
+          iv_cylinders = ms_config-cylinders
+        CHANGING
+          cv_total = mv_total ).
+    ENDIF.
+
+*   Rotate tires if requested
+    IF is_sel-rotate_tires  IS NOT INITIAL.
+      rotate_tires(
+        CHANGING
+          cv_total = mv_total ).
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZST2CL_AUTOSVC_BASE->ROTATE_TIRES
+* +-------------------------------------------------------------------------------------------------+
+* | [<-->] CV_TOTAL                       TYPE        VAL_AMOUNT
+* | [!CX!] ZCX_ST2_GENERAL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method ROTATE_TIRES.
+
+    SKIP 1.
+
+    WRITE:
+      / TEXT-t07 UNDER TEXT-h01.
+*       --> TIRE ROTATION
+
+    WRITE:
+      / TEXT-t02 UNDER TEXT-h01,
+*       --> Standard fee:
+        mc_price_rotate_tires UNDER TEXT-h02
+                              RIGHT-JUSTIFIED
+                              CURRENCY mc_currency.
+
+    TRY.
+
+*       Add charge to total
+        cv_total = cv_total + mc_price_rotate_tires.
+
+      CATCH cx_sy_arithmetic_error INTO DATA(lo_error).
+        RAISE EXCEPTION TYPE zcx_st2_general
+          EXPORTING
+            textid    = zcx_st2_general=>dynamic_error
+            long_text = lo_error->get_text( ).
+    ENDTRY.
+
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZST2CL_AUTOSVC_BASE->SPARK_PLUG_SVC
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_CYLINDERS                   TYPE        CYL_COUNT
+* | [<-->] CV_TOTAL                       TYPE        VAL_AMOUNT
+* | [!CX!] ZCX_ST2_GENERAL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD spark_plug_svc.
+
+    SKIP 1.
+
+    WRITE:
+      / TEXT-t04 UNDER TEXT-h01.
+*       --> SPARK PLUG SERVICE
+
+
+    TRY.
+
+*       Calculate parts total price and add to total
+        DATA(lv_parts) =
+          CONV val_amount( iv_cylinders * mc_price_spark_plug ).
+
+        cv_total = cv_total + lv_parts.
+
+*       Calculate labor and add to total
+        DATA(lv_labor) =
+          CONV val_amount( iv_cylinders * mc_labor_spark_plug *
+                           mc_price_labor ).
+
+        cv_total = cv_total + lv_labor.
+
+        DATA(lv_text) =
+          iv_cylinders && | | && TEXT-t05 && | | && mc_price_spark_plug.
+*                                --> Spark plugs @
+
+        WRITE:
+          / lv_text UNDER TEXT-h01,
+            lv_parts UNDER TEXT-h02
+                           RIGHT-JUSTIFIED
+                           CURRENCY mc_currency.
+
+        WRITE:
+          / TEXT-t06 UNDER TEXT-h01,
+*           Labor:
+            lv_labor UNDER TEXT-h02
+                           RIGHT-JUSTIFIED
+                           CURRENCY mc_currency.
+
+      CATCH cx_sy_arithmetic_error INTO DATA(lo_error).
+        RAISE EXCEPTION TYPE zcx_st2_general
+          EXPORTING
+            textid    = zcx_st2_general=>dynamic_error
+            long_text = lo_error->get_text( ).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZST2CL_AUTOSVC_BASE->WRITE_HEADER
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD write_header.
+
+    WRITE:
+      /1 TEXT-h01,
+*        --> Service item
+      51 TEXT-h02.
+*        --> Item charge
+
+    ULINE /1(75).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZST2CL_AUTOSVC_BASE->WRITE_TOTAL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TOTAL                       TYPE        VAL_AMOUNT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD write_total.
+
+    SKIP 1.
+
+    ULINE /1(75).
+
+    WRITE:
+      / TEXT-t08 UNDER TEXT-h01,
+*       --> GRAND TOTAL:
+        iv_total UNDER TEXT-h02
+                 RIGHT-JUSTIFIED
+                 CURRENCY mc_currency.
+
+    ULINE /1(75).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZST2CL_AUTOSVC_BASE->ZST2IF_AUTOSVC~EXECUTE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TYPE_ID                     TYPE        ZST2CL_AUTOSVC_BASE=>AUTO_TYPE_ID
+* | [--->] IS_SEL                         TYPE        ZST2CL_AUTOSVC_BASE=>SEL_SCREEN_REC
+* | [!CX!] ZCX_ST2_GENERAL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method ZST2IF_AUTOSVC~EXECUTE.
+
+*   Read configuration data for current auto type
+    TRY.
+        ms_config =
+          VALUE #( mt_config[ type_id = iv_type_id ] ).
+      CATCH cx_sy_itab_line_not_found.
+        RAISE EXCEPTION TYPE zcx_st2_general
+          EXPORTING
+            textid       = zcx_st2_general=>invalid_auto_type
+            auto_type_id = iv_type_id.
+    ENDTRY.
+
+*   Make sure that one or more services were selected
+    IF is_sel IS INITIAL.
+      RAISE EXCEPTION TYPE zcx_st2_general
+        EXPORTING
+          textid = zcx_st2_general=>no_services.
+    ENDIF.
+
+*   Execute methods for selected services
+    do_services( is_sel ).
+
+*   Output final total
+    write_total( mv_total ).
+
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZST2CL_AUTOSVC_BASE=>ZST2IF_AUTOSVC~GET_AUTO_LIST
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RT_DATA                        TYPE        ZST2CL_AUTOSVC_BASE=>AUTO_TYPE_TAB
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method ZST2IF_AUTOSVC~GET_AUTO_LIST.
+
+    rt_data =
+      VALUE #(
+        FOR <lwa_list> IN mt_config
+          ( type_id = <lwa_list>-type_id )
+      ).
+
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZST2CL_AUTOSVC_BASE=>ZST2IF_AUTOSVC~GET_CLASS_NAME
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_AUTO_TYPE                   TYPE        ZST2CL_AUTOSVC_BASE=>AUTO_TYPE_ID
+* | [<-()] RV_CLASS_TYPE                  TYPE        SEOCLSNAME
+* | [!CX!] ZCX_ST2_GENERAL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD zst2if_autosvc~get_class_name.
+
+    TRY.
+        rv_class_type =
+                  VALUE #( mt_config[ type_id = iv_auto_type ]-class_type ).
+
+      CATCH cx_sy_itab_line_not_found.
+        RAISE EXCEPTION TYPE zcx_st2_general
+          EXPORTING
+            textid       = zcx_st2_general=>invalid_auto_type
+            auto_type_id = iv_auto_type.
+    ENDTRY.
+
+  ENDMETHOD.
+ENDCLASS.

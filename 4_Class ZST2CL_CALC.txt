@@ -1,0 +1,66 @@
+class ZST2CL_CALC definition
+  public
+  final
+  create public .
+
+public section.
+
+*     Add two values and return the result
+  methods ADD_VALUES
+    importing
+      !IV_INPUT1 type I
+      !IV_INPUT2 type I
+    returning
+      value(RV_RESULT) type I .
+*     Display result in popup
+  methods DISPLAY_RESULT
+    importing
+      !IV_RESULT type I .
+protected section.
+private section.
+    DATA:
+      mv_result TYPE i.
+ENDCLASS.
+
+
+
+CLASS ZST2CL_CALC IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZST2CL_CALC->ADD_VALUES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_INPUT1                      TYPE        I
+* | [--->] IV_INPUT2                      TYPE        I
+* | [<-()] RV_RESULT                      TYPE        I
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD add_values.
+* Add two values and return the result
+
+    rv_result = iv_input1 + iv_input2.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZST2CL_CALC->DISPLAY_RESULT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_RESULT                      TYPE        I
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD display_result.
+* Display result in popup
+
+    DATA:
+      lv_text type text40.
+
+    write iv_result to lv_text LEFT-JUSTIFIED.
+
+    lv_text = TEXT-t01 && | | && lv_text.
+*             --> Calculation result =
+
+    CALL FUNCTION 'POPUP_TO_DISPLAY_TEXT'
+      EXPORTING
+        textline1 = lv_text.
+
+  ENDMETHOD.
+ENDCLASS.

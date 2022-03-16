@@ -1,0 +1,104 @@
+class ZST2CL_AUTOSVC_SPORT definition
+  public
+  inheriting from ZST2CL_AUTOSVC_BASE
+  final
+  create public .
+
+public section.
+
+  methods CONSTRUCTOR
+    importing
+      !IV_TYPE_ID type AUTO_TYPE_ID
+      !IS_SEL type SEL_SCREEN_REC
+    raising
+      ZCX_ST2_GENERAL .
+protected section.
+
+  methods CHANGE_OIL
+    redefinition .
+private section.
+
+  constants MC_PRICE_HIFLOW_FILTER type VAL_AMOUNT value '12.50' ##NO_TEXT.
+ENDCLASS.
+
+
+
+CLASS ZST2CL_AUTOSVC_SPORT IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZST2CL_AUTOSVC_SPORT->CHANGE_OIL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_CAPACITY                    TYPE        OIL_CAP
+* | [<-->] CV_TOTAL                       TYPE        VAL_AMOUNT
+* | [!CX!] ZCX_ST2_GENERAL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method CHANGE_OIL.
+**TRY.
+*CALL METHOD SUPER->CHANGE_OIL
+*  EXPORTING
+*    IV_CAPACITY =
+*  CHANGING
+*    CV_TOTAL    =
+*    .
+** CATCH zcx_st2_general .
+**ENDTRY.
+
+*   Call superclass method
+    super->change_oil(
+      EXPORTING
+        iv_capacity = iv_capacity
+      CHANGING
+        cv_total = cv_total ).
+
+*   Add line item for high flow oil filter
+    WRITE:
+      / TEXT-t01 UNDER TEXT-h01,
+*       --> High flow oil filter:
+        mc_price_hiflow_filter UNDER TEXT-h02
+                               RIGHT-JUSTIFIED
+                               CURRENCY mc_currency.
+
+*   Add high flow oil filter price to running total
+    cv_total = cv_total + mc_price_hiflow_filter.
+
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZST2CL_AUTOSVC_SPORT->CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TYPE_ID                     TYPE        AUTO_TYPE_ID
+* | [--->] IS_SEL                         TYPE        SEL_SCREEN_REC
+* | [!CX!] ZCX_ST2_GENERAL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CONSTRUCTOR.
+
+    super->constructor( ).
+
+*   Read configuration data for current auto type
+    TRY.
+        ms_config =
+          VALUE #( mt_config[ type_id = iv_type_id ] ).
+      CATCH cx_sy_itab_line_not_found.
+        RAISE EXCEPTION TYPE zcx_st2_general
+          EXPORTING
+            textid       = zcx_st2_general=>invalid_auto_type
+            auto_type_id = iv_type_id.
+    ENDTRY.
+
+*   Make sure that one or more services were selected
+    IF is_sel IS INITIAL.
+      RAISE EXCEPTION TYPE zcx_st2_general
+        EXPORTING
+          textid = zcx_st2_general=>no_services.
+    ENDIF.
+
+*   Execute methods for selected services
+    do_services( is_sel ).
+
+*   Output final total
+    write_total( mv_total ).
+
+  ENDMETHOD.
+ENDCLASS.

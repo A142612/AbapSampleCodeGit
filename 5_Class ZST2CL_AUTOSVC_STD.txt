@@ -1,0 +1,60 @@
+class ZST2CL_AUTOSVC_STD definition
+  public
+  inheriting from ZST2CL_AUTOSVC_BASE
+  final
+  create public .
+
+public section.
+
+  methods CONSTRUCTOR
+    importing
+      !IV_TYPE_ID type AUTO_TYPE_ID
+      !IS_SEL type SEL_SCREEN_REC
+    raising
+      ZCX_ST2_GENERAL .
+protected section.
+private section.
+ENDCLASS.
+
+
+
+CLASS ZST2CL_AUTOSVC_STD IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZST2CL_AUTOSVC_STD->CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TYPE_ID                     TYPE        AUTO_TYPE_ID
+* | [--->] IS_SEL                         TYPE        SEL_SCREEN_REC
+* | [!CX!] ZCX_ST2_GENERAL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD constructor.
+
+    super->constructor( ).
+
+*   Read configuration data for current auto type
+    TRY.
+        ms_config =
+          VALUE #( mt_config[ type_id = iv_type_id ] ).
+      CATCH cx_sy_itab_line_not_found.
+        RAISE EXCEPTION TYPE zcx_st2_general
+          EXPORTING
+            textid       = zcx_st2_general=>invalid_auto_type
+            auto_type_id = iv_type_id.
+    ENDTRY.
+
+*   Make sure that one or more services were selected
+    IF is_sel IS INITIAL.
+      RAISE EXCEPTION TYPE zcx_st2_general
+        EXPORTING
+          textid = zcx_st2_general=>no_services.
+    ENDIF.
+
+*   Execute methods for selected services
+    do_services( is_sel ).
+
+*   Output final total
+    write_total( mv_total ).
+
+  ENDMETHOD.
+ENDCLASS.

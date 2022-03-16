@@ -1,0 +1,154 @@
+*&---------------------------------------------------------------------*
+*& Report ZST2AUTOSVC
+*&---------------------------------------------------------------------*
+*& Demo application using inheritance
+*&---------------------------------------------------------------------*
+REPORT zst2autosvc.
+
+***********************************************************************
+* Selection screen definition
+***********************************************************************
+SELECTION-SCREEN BEGIN OF BLOCK car
+  WITH FRAME
+  TITLE TEXT-s01.
+*       --> Select auto type
+
+PARAMETERS:
+  p_car TYPE zst2cl_autosvc_base=>auto_type_id
+        OBLIGATORY.
+
+SELECTION-SCREEN END OF BLOCK car.
+
+SELECTION-SCREEN SKIP 1.
+
+SELECTION-SCREEN BEGIN OF BLOCK service
+  WITH FRAME
+  TITLE TEXT-s02.
+*       --> Select required services
+
+PARAMETERS:
+  p_oil   AS CHECKBOX,
+  p_spark AS CHECKBOX,
+  p_tire  AS CHECKBOX.
+
+SELECTION-SCREEN END OF BLOCK service.
+
+
+***********************************************************************
+* Startup class definition
+***********************************************************************
+CLASS lcl_start DEFINITION.
+
+  PUBLIC SECTION.
+
+    CONSTANTS:
+      mc_error  TYPE bapi_mtype VALUE 'E',
+      mc_status TYPE bapi_mtype VALUE 'S'.
+
+    CLASS-DATA:
+*     Drop-down list of auto types
+      mt_list  TYPE zst2cl_autosvc_base=>auto_type_tab,
+*     Generic error object
+      mo_error TYPE REF TO cx_root.
+
+    CLASS-METHODS:
+*     Display selection screen drop-down list
+      list_autos,
+      run
+        RAISING
+          zcx_st2_general.
+
+ENDCLASS.
+
+
+***********************************************************************
+* Preprocessing
+***********************************************************************
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_car.
+  lcl_start=>list_autos( ).
+
+
+***********************************************************************
+* Program starts here
+***********************************************************************
+START-OF-SELECTION.
+  TRY.
+      lcl_start=>run( ).
+    CATCH cx_root INTO lcl_start=>mo_error.
+      MESSAGE lcl_start=>mo_error TYPE lcl_start=>mc_status
+                                  DISPLAY LIKE  lcl_start=>mc_error.
+  ENDTRY.
+
+
+***********************************************************************
+* Startup class implementation
+***********************************************************************
+CLASS lcl_start IMPLEMENTATION.
+
+* Display selection screen drop-down list
+  METHOD list_autos.
+
+    DATA:
+      lv_index TYPE sytabix.
+
+*   Get the list
+    mt_list = zst2cl_autosvc_base=>get_auto_list( ).
+
+*   Display the drop-down
+    CALL FUNCTION 'POPUP_WITH_TABLE_DISPLAY'
+      EXPORTING
+        startpos_row = 5
+        startpos_col = 5
+        endpos_row   = 10
+        endpos_col   = 15
+        titletext    = TEXT-s01
+*                      --> POPUP_WITH_TABLE_DISPLAY
+      IMPORTING
+        choise       = lv_index
+      TABLES
+        valuetab     = mt_list
+      EXCEPTIONS
+        OTHERS       = 1.
+
+*   Pass selected value to selection screen field
+    IF sy-subrc = 0.
+      p_car = mt_list[ lv_index ]-type_id.
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD run.
+
+*   Build selection screen parameter structure
+    DATA(ls_params) =
+      VALUE zst2cl_autosvc_base=>sel_screen_rec(
+        oil_change = p_oil
+        spark_plugs = p_spark
+        rotate_tires = p_tire ).
+
+*   Create processing object that matches selected auto type
+    CASE p_car.
+
+      WHEN 'COMPACT_01' OR
+           'MIDSIZE_01' OR
+           'MIDSIZE_02'.
+
+        NEW zst2cl_autosvc_std( iv_type_id = p_car
+                                is_sel = ls_params ).
+
+      WHEN 'SPORT'.
+
+        NEW zst2cl_autosvc_sport( iv_type_id = p_car
+                                  is_sel = ls_params ).
+
+      WHEN OTHERS.
+        RAISE EXCEPTION TYPE zcx_st2_general
+          EXPORTING
+            textid       = zcx_st2_general=>invalid_auto_type
+            auto_type_id = p_car.
+
+    ENDCASE.
+
+  ENDMETHOD.
+
+ENDCLASS.

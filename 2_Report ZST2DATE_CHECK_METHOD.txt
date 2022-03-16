@@ -1,0 +1,25 @@
+*&---------------------------------------------------------------------*
+*& Report ZST2DATE_CHECK_FUNCTION
+*&---------------------------------------------------------------------*
+*& Check date using method
+*&---------------------------------------------------------------------*
+REPORT zst2date_check_method.
+
+
+CONSTANTS:
+* Correct data type is SYDATUM
+  gc_date TYPE sydatum VALUE '20010101'.
+
+cl_isu_date_check=>date_check_plausibility(
+  EXPORTING
+    x_date   = gc_date
+  EXCEPTIONS
+    plausibility_check_failed = 1 ).
+
+IF sy-subrc = 0.
+  WRITE:
+    / 'Date OK'.
+ELSE.
+  WRITE:
+    / 'Date invalid'.
+ENDIF.

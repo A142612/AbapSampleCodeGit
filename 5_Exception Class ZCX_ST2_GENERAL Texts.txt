@@ -1,0 +1,4 @@
+ZCX_ST2_GENERAL
+DYNAMIC_ERROR	&LONG_TEXT& &SHORT_TEXT& & &
+INVALID_AUTO_TYPE	"&AUTO_TYPE_ID&" is not a valid auto type!
+NO_SERVICES	No services were selected!

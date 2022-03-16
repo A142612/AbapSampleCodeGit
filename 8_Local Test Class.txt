@@ -1,0 +1,135 @@
+class lcl_Services_Test definition deferred.
+class zst2cl_Autosvc_Sport definition local friends lcl_Services_Test.
+
+class lcl_Services_Test definition for testing
+  duration short
+     inheriting from ZST2CL_AUTOSVC_BASE  risk level harmless
+.
+*?#<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+*?<asx:values>
+*?<TESTCLASS_OPTIONS>
+*?<TEST_CLASS>lcl_Services_Test
+*?</TEST_CLASS>
+*?<TEST_MEMBER>f_Cut
+*?</TEST_MEMBER>
+*?<OBJECT_UNDER_TEST>ZST2CL_AUTOSVC_SPORT
+*?</OBJECT_UNDER_TEST>
+*?<OBJECT_IS_LOCAL/>
+*?<GENERATE_FIXTURE>X
+*?</GENERATE_FIXTURE>
+*?<GENERATE_CLASS_FIXTURE/>
+*?<GENERATE_INVOCATION>X
+*?</GENERATE_INVOCATION>
+*?<GENERATE_ASSERT_EQUAL/>
+*?</TESTCLASS_OPTIONS>
+*?</asx:values>
+*?</asx:abap>
+  private section.
+    data:
+      f_Cut type ref to zst2cl_Autosvc_Sport.  "class under test
+
+    methods: setup.
+    methods: teardown.
+    methods: test_change_Oil for testing.
+    methods: test_spark_plug_svc for testing.
+    methods: test_rotate_tires for testing.
+endclass.       "lcl_Services_Test
+
+
+class lcl_Services_Test implementation.
+
+  method setup.
+
+
+    create object f_Cut.
+
+*   Initialize configuration data for "SPORT" auto type
+    f_cut->ms_config =
+      value #( type_id = 'SPORT'
+               oil_capacity = '4.6'
+               cylinders = 6
+               class_type = 'ZST2CL_AUTOSVC_SPORT' ).
+
+  endmethod.
+
+
+  method teardown.
+
+
+
+  endmethod.
+
+
+  method test_change_Oil.
+
+    data cv_Total type zst2cl_Autosvc_Base=>val_Amount.
+
+    f_Cut->change_Oil(
+      EXPORTING
+        IV_CAPACITY = f_cut->ms_config-oil_capacity
+      CHANGING
+        CV_TOTAL = cv_Total ).
+
+*   Check that amount is correct; should be sum of:
+*       Standard fee               -->   39.99
+*       Additional oil surcharge   -->    2.31
+*       High flow oil filter       -->   12.50
+*                                        =====
+*       TOTAL                      -->   54.80
+    cl_abap_unit_assert=>assert_equals(
+      act = cv_total
+      exp = '54.80'
+      msg = 'Oil change value incorrect'
+      quit = if_aunit_constants=>no
+      level = if_aunit_constants=>critical ).
+
+  endmethod.
+
+
+  method test_spark_plug_svc.
+
+    data cv_Total type zst2cl_Autosvc_Base=>val_Amount.
+
+    f_Cut->spark_plug_svc(
+      EXPORTING
+        iv_cylinders = f_cut->ms_config-cylinders
+      CHANGING
+        CV_TOTAL = cv_Total ).
+
+*   Check that amount is correct; should be sum of:
+*       6 plugs @ 4.75 each        -->   28.50
+*       Labor: 6 * 0.2 hrs @ 75/hr -->   90.00
+*                                        =====
+*       TOTAL                      -->   118.50
+    cl_abap_unit_assert=>assert_equals(
+      act = cv_total
+      exp = '118.50'
+      msg = 'Spark plug service value incorrect'
+      quit = if_aunit_constants=>no
+      level = if_aunit_constants=>critical ).
+
+  endmethod.
+
+
+  method test_rotate_tires.
+
+    data cv_Total type zst2cl_Autosvc_Base=>val_Amount.
+
+    f_Cut->rotate_tires(
+      CHANGING
+        CV_TOTAL = cv_Total ).
+
+*   Check that amount is correct; should be standard fee of 45.50
+    cl_abap_unit_assert=>assert_equals(
+      act = cv_total
+      exp = '45.50'
+      msg = 'Tire rotation service value incorrect'
+      quit = if_aunit_constants=>no
+      level = if_aunit_constants=>critical ).
+
+  endmethod.
+
+
+
+
+endclass.

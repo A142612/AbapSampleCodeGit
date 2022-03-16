@@ -1,0 +1,21 @@
+interface ZST2IF_AUTOSVC
+  public .
+
+
+  class-methods GET_AUTO_LIST
+    returning
+      value(RT_DATA) type ZST2CL_AUTOSVC_BASE=>AUTO_TYPE_TAB .
+  class-methods GET_CLASS_NAME
+    importing
+      !IV_AUTO_TYPE type ZST2CL_AUTOSVC_BASE=>AUTO_TYPE_ID
+    returning
+      value(RV_CLASS_TYPE) type SEOCLSNAME
+    raising
+      ZCX_ST2_GENERAL .
+  methods EXECUTE
+    importing
+      !IV_TYPE_ID type ZST2CL_AUTOSVC_BASE=>AUTO_TYPE_ID
+      !IS_SEL type ZST2CL_AUTOSVC_BASE=>SEL_SCREEN_REC
+    raising
+      ZCX_ST2_GENERAL .
+endinterface.

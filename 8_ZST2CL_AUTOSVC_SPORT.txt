@@ -1,0 +1,59 @@
+class ZST2CL_AUTOSVC_SPORT definition
+  public
+  inheriting from ZST2CL_AUTOSVC_BASE
+  final
+  create public .
+
+public section.
+protected section.
+
+  methods CHANGE_OIL
+    redefinition .
+private section.
+
+  constants MC_PRICE_HIFLOW_FILTER type VAL_AMOUNT value '12.50' ##NO_TEXT.
+ENDCLASS.
+
+
+
+CLASS ZST2CL_AUTOSVC_SPORT IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZST2CL_AUTOSVC_SPORT->CHANGE_OIL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_CAPACITY                    TYPE        OIL_CAP
+* | [<-->] CV_TOTAL                       TYPE        VAL_AMOUNT
+* | [!CX!] ZCX_ST2_GENERAL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method CHANGE_OIL.
+**TRY.
+*CALL METHOD SUPER->CHANGE_OIL
+*  EXPORTING
+*    IV_CAPACITY =
+*  CHANGING
+*    CV_TOTAL    =
+*    .
+** CATCH zcx_st2_general .
+**ENDTRY.
+
+*   Call superclass method
+    super->change_oil(
+      EXPORTING
+        iv_capacity = iv_capacity
+      CHANGING
+        cv_total = cv_total ).
+
+*   Add line item for high flow oil filter
+    WRITE:
+      / TEXT-t01 UNDER TEXT-h01,
+*       --> High flow oil filter:
+        mc_price_hiflow_filter UNDER TEXT-h02
+                               RIGHT-JUSTIFIED
+                               CURRENCY mc_currency.
+
+*   Add high flow oil filter price to running total
+    cv_total = cv_total + mc_price_hiflow_filter.
+
+  endmethod.
+ENDCLASS.

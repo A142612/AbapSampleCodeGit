@@ -1,0 +1,24 @@
+*&---------------------------------------------------------------------*
+*& Report ZST2DATE_CHECK_FUNCTION
+*&---------------------------------------------------------------------*
+*& Check date using function module
+*&---------------------------------------------------------------------*
+REPORT zst2date_check_function.
+
+CONSTANTS:
+* Correct data type is SYDATUM
+  gc_date TYPE sydatum VALUE '20010101'.
+
+CALL FUNCTION 'DATE_CHECK_PLAUSIBILITY'
+  EXPORTING
+    date   = gc_date
+  EXCEPTIONS
+    OTHERS = 1.
+
+IF sy-subrc = 0.
+  WRITE:
+    / 'Date OK'.
+ELSE.
+  WRITE:
+    / 'Date invalid'.
+ENDIF.
